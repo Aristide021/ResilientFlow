@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package resilientflow;
+
+/* Generic disaster event passed between agents */
+message DisasterEvent {
+  string event_id      = 1;
+  string source_agent  = 2;  // e.g. "data_aggregator"
+  double latitude      = 3;
+  double longitude     = 4;
+  string event_type    = 5;  // "flood" | "quake" | "fire" | ...
+  int32 severity_raw   = 6;  // 0–100 from ML model
+  int64 timestamp_ms   = 7;
+}
+
+/* Allocation plan emitted by ResourceAllocator */
+message AllocationPlan {
+  string plan_id                     = 1;
+  repeated string impacted_zones     = 2;
+  map<string, int32> resource_totals = 3; // {"water":500, "kits":120}
+  string geojson_url                 = 4;
+  int64 generated_ms                 = 5;
+}
+
+/* Impact assessment data for heat-map generation */
+message ImpactAssessment {
+  string assessment_id               = 1;
+  double latitude                    = 2;
+  double longitude                   = 3;
+  string grid_cell_id               = 4;
+  int32 severity_score              = 5;  // 0-100 weighted score
+  string damage_type                = 6;  // "structural", "flood", "fire"
+  map<string, double> confidence_scores = 7; // per damage type
+  int64 assessed_ms                 = 8;
+}
+
+/* Alert message for public distribution */
+message AlertMessage {
+  string alert_id                   = 1;
+  string language_code              = 2;  // "en", "es", "fr"
+  string title                      = 3;
+  string body                       = 4;
+  string urgency                    = 5;  // "immediate", "expected", "future"
+  repeated string affected_areas    = 6;
+  string cap_xml_url               = 7;  // Common Alerting Protocol
+  int64 expires_ms                 = 8;
+}
+
+/* Situation report metadata */
+message SituationReport {
+  string report_id                  = 1;
+  string pdf_url                    = 2;
+  string geojson_url               = 3;
+  map<string, string> summary_stats = 4; // key metrics
+  int64 generated_ms               = 5;
+  string incident_id               = 6;
+} 

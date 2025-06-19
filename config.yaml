@@ -1,0 +1,280 @@
+# ResilientFlow Configuration
+# System-wide settings and parameters
+
+# System Information
+system:
+  name: "ResilientFlow"
+  version: "1.0.0"
+  environment: "production"  # development | staging | production
+  region: "us-central1"
+
+# Google Cloud Project Settings
+gcp:
+  project_id: "${GOOGLE_CLOUD_PROJECT}"
+  region: "us-central1"
+  zone: "us-central1-a"
+  
+  # Service configurations
+  services:
+    cloud_run:
+      memory: "2Gi"
+      cpu: 1
+      min_instances: 0
+      max_instances: 10
+      timeout: 300
+    
+    bigquery:
+      dataset: "resilientflow"
+      location: "US"
+      
+    firestore:
+      database: "(default)"
+      
+    storage:
+      situation_reports_bucket: "${GOOGLE_CLOUD_PROJECT}-situation-reports"
+      model_artifacts_bucket: "${GOOGLE_CLOUD_PROJECT}-model-artifacts"
+      build_artifacts_bucket: "${GOOGLE_CLOUD_PROJECT}-build-artifacts"
+
+# Agent Configuration
+agents:
+  data_aggregator:
+    name: "data-aggregator"
+    image_processing_timeout: 30
+    batch_size: 10
+    vertex_ai_endpoint: "projects/${GOOGLE_CLOUD_PROJECT}/locations/us-central1/endpoints/damage-detection"
+    
+  impact_assessor:
+    name: "impact-assessor"
+    spatial_resolution: 0.001  # degrees (~100m)
+    clustering_distance: 1.0   # km
+    severity_threshold: 50     # 0-100 scale
+    update_interval: 30        # seconds
+    
+  resource_allocator:
+    name: "resource-allocator"
+    optimization_timeout: 30   # seconds
+    coverage_target: 0.85      # 85% minimum coverage
+    max_travel_distance: 100   # km
+    vehicle_types:
+      - type: "truck"
+        capacity: 5000          # kg
+        speed: 60               # km/h
+      - type: "helicopter"
+        capacity: 1000          # kg
+        speed: 200              # km/h
+      - type: "boat"
+        capacity: 3000          # kg
+        speed: 40               # km/h
+        
+  comms_coordinator:
+    name: "comms-coordinator"
+    languages: ["en", "es", "fr"]
+    alert_channels:
+      fcm:
+        enabled: true
+        topics: 
+          - "resilientflow_en"
+          - "resilientflow_es"
+          - "resilientflow_fr"
+      sms:
+        enabled: true
+        provider: "twilio"
+      social_media:
+        enabled: false
+        platforms: ["twitter", "facebook"]
+    severity_thresholds:
+      low: 30
+      medium: 60
+      high: 85
+      critical: 95
+      
+  report_synthesizer:
+    name: "report-synthesizer"
+    report_types:
+      immediate: 
+        trigger_severity: 85
+        generation_time_limit: 300  # 5 minutes
+      periodic:
+        interval: 1800              # 30 minutes
+      final:
+        delay_after_incident: 3600  # 1 hour
+    output_formats: ["pdf", "geojson"]
+
+# Pub/Sub Topics
+pubsub:
+  topics:
+    disaster_events: "rf-disaster-events"
+    impact_updates: "rf-impact-updates"
+    allocation_plans: "rf-allocation-plans"
+    alert_broadcasts: "rf-alert-broadcasts"
+    agent_events: "rf-agent-events"
+  
+  subscriptions:
+    data_aggregator: "rf-disaster-events-aggregator"
+    impact_assessor: "rf-disaster-events-assessor"
+    resource_allocator: "rf-impact-updates-allocator"
+    comms_coordinator: "rf-multi-coordinator"
+    report_synthesizer: "rf-all-events-reporter"
+
+# BigQuery Schema
+bigquery:
+  datasets:
+    resilientflow:
+      tables:
+        impact_assessments:
+          partition_field: "assessed_timestamp"
+          cluster_fields: ["grid_cell_id", "damage_type"]
+        impact_zones:
+          partition_field: "last_updated"
+          cluster_fields: ["severity_score"]
+        facility_inventory:
+          cluster_fields: ["facility_type", "location_region"]
+        allocation_history:
+          partition_field: "created_timestamp"
+          cluster_fields: ["status", "incident_id"]
+
+# Firestore Collections
+firestore:
+  collections:
+    inventory:
+      name: "inventory"
+      indexes:
+        - fields: ["facility_id", "resource_type"]
+        - fields: ["last_updated_ms"]
+    allocations:
+      name: "allocations"
+      indexes:
+        - fields: ["incident_id", "status"]
+        - fields: ["created_ms"]
+    agent_state:
+      name: "agent_state"
+      indexes:
+        - fields: ["agent_name", "last_heartbeat"]
+
+# Monitoring and Alerting
+monitoring:
+  metrics:
+    end_to_end_latency:
+      sli_threshold: 120    # seconds (95th percentile)
+      slo_target: 99        # percent of days
+      alert_threshold: 180  # seconds
+    
+    alert_delivery_rate:
+      sli_threshold: 99     # percent delivered
+      slo_target: 99        # percent uptime
+      alert_threshold: 95   # percent
+    
+    data_freshness:
+      sli_threshold: 300    # seconds max lag
+      slo_target: 95        # percent of time
+      alert_threshold: 600  # seconds
+    
+    agent_availability:
+      sli_threshold: 99.9   # percent uptime
+      slo_target: 99.9      # monthly target
+      alert_threshold: 99   # percent
+
+  alerting:
+    notification_channels:
+      email: "alerts@resilientflow.org"
+      slack: "#resilientflow-alerts"
+      pagerduty: "resilientflow-oncall"
+    
+    policies:
+      critical:
+        severity: "CRITICAL"
+        notification_delay: 0
+        escalation_delay: 300  # 5 minutes
+      
+      warning:
+        severity: "WARNING"
+        notification_delay: 60  # 1 minute
+        escalation_delay: 900   # 15 minutes
+
+# Security Configuration
+security:
+  service_accounts:
+    agents: "resilientflow-agents@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
+    terraform: "resilientflow-terraform@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
+  
+  iam_roles:
+    - "roles/bigquery.dataEditor"
+    - "roles/datastore.user"
+    - "roles/pubsub.editor"
+    - "roles/storage.objectAdmin"
+    - "roles/aiplatform.user"
+    - "roles/cloudtranslate.user"
+  
+  data_retention:
+    bigquery_days: 30
+    firestore_days: 30
+    storage_days: 90
+    logs_days: 30
+
+# External APIs
+external_apis:
+  vertex_ai:
+    model_name: "damage-detection-v1"
+    version: "1"
+    confidence_threshold: 0.7
+  
+  translate_api:
+    model: "base"
+    batch_size: 100
+  
+  maps_api:
+    static_maps:
+      size: "640x640"
+      zoom: 12
+      format: "png"
+
+# Development Settings
+development:
+  debug_mode: false
+  log_level: "INFO"          # DEBUG | INFO | WARNING | ERROR
+  enable_profiling: false
+  mock_external_apis: false
+  
+  local_overrides:
+    use_emulators: false
+    firestore_emulator_host: "localhost:8080"
+    pubsub_emulator_host: "localhost:8085"
+    bigquery_emulator_host: "localhost:9050"
+
+# Testing Configuration  
+testing:
+  scenarios:
+    hurricane:
+      duration_minutes: 10
+      severity_progression: [30, 50, 75, 90, 85, 70, 50]
+      affected_radius_km: 50
+    
+    wildfire:
+      duration_minutes: 15
+      severity_progression: [40, 65, 85, 95, 90, 75]
+      affected_radius_km: 25
+    
+    earthquake:
+      duration_minutes: 5
+      severity_progression: [95, 80, 60, 40]
+      affected_radius_km: 100
+      aftershocks: 3
+
+# Cost Optimization
+cost_optimization:
+  cloud_run:
+    scale_to_zero: true
+    cpu_allocation: "cpu-boost-on-startup"
+  
+  bigquery:
+    use_cached_results: true
+    partition_expiration_days: 30
+  
+  storage:
+    lifecycle_rules:
+      - action: "DELETE"
+        condition: 
+          age_days: 90
+      - action: "STANDARD_TO_NEARLINE"
+        condition:
+          age_days: 30 

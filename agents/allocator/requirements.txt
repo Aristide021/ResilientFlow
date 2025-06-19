@@ -1,0 +1,7 @@
+google-cloud-pubsub==2.18.4
+google-cloud-firestore==2.13.1
+google-cloud-logging==3.8.0
+ortools==9.8.3296
+numpy==1.24.3
+protobuf==4.25.1
+grpcio==1.59.2 
