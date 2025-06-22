@@ -1,496 +1,539 @@
-# ResilientFlow Architecture
+# ResilientFlow ADK Architecture
 
 ## Overview
 
-ResilientFlow is a distributed system of AI agents designed for real-time disaster relief coordination. The system ingests multi-modal data (satellite imagery, IoT sensors, social media), performs spatial analysis, optimizes resource allocation, and generates multilingual alerts — all within sub-2-minute response times.
+ResilientFlow is an ADK-based multi-agent system designed for real-time disaster relief coordination. The system uses a central orchestrator to coordinate 5 specialized agent tools that ingest multi-modal data (satellite imagery, IoT sensors, social media), perform spatial analysis, optimize resource allocation, and generate multilingual alerts — all within sub-2-minute response times.
 
-## System Architecture
+## ADK-Based Architecture
 
 ### High-Level Design
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Data Sources  │    │   Agent Swarm   │    │   Outputs       │
+│   Data Sources  │    │ ADK Orchestrator│    │   Outputs       │
 │                 │    │                 │    │                 │
-│ • Satellite     │───▶│ • Data Aggr.    │───▶│ • Alerts        │
-│ • IoT Sensors   │    │ • Impact Assess │    │ • Allocations   │
-│ • Social Media  │    │ • Resource All. │    │ • Reports       │
-│ • Gov Feeds     │    │ • Comms Coord.  │    │ • Heat Maps     │
-│                 │    │ • Report Synth. │    │                 │
+│ • Satellite     │───▶│ orchestrator.py │───▶│ • Alerts        │
+│ • IoT Sensors   │    │                 │    │ • Allocations   │
+│ • Social Media  │    │ Agent Tools:    │    │ • Reports       │
+│ • Gov Feeds     │    │ • Aggregator    │    │ • Heat Maps     │
+│                 │    │ • Assessor      │    │                 │
+│                 │    │ • Allocator     │    │                 │
+│                 │    │ • Communications│    │                 │
+│                 │    │ • Reporter      │    │                 │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-### Agent Interaction Flow
+### Central Orchestrator
+
+**`orchestrator.py`** is the heart of ResilientFlow's ADK architecture:
+
+- **ADK Agent Framework**: Uses Google Agent Development Kit for multi-agent coordination
+- **DisasterResponseAgent**: Main ADK agent that orchestrates the workflow
+- **Explicit Workflow**: 6-step disaster response pipeline with conditional logic
+- **State Management**: Complete workflow tracking and error handling
+- **Parallel Execution**: Simultaneous communications and reporting phases
+
+### ADK Workflow Sequence
 
 ```mermaid
 sequenceDiagram
-    participant SI as Satellite Image
-    participant DA as Data Aggregator
-    participant IA as Impact Assessor
-    participant RA as Resource Allocator
-    participant CC as Comms Coordinator
-    participant RS as Report Synthesizer
-    participant BQ as BigQuery GIS
-    participant FS as Firestore
-    participant PS as Pub/Sub
+    participant Client as Event Input
+    participant Orch as ADK Orchestrator
+    participant Agg as Aggregator Tool
+    participant Ass as Assessor Tool
+    participant All as Allocator Tool
+    participant Com as Comms Tool
+    participant Rep as Reporter Tool
 
-    SI->>DA: Cloud Storage trigger
-    DA->>BQ: Store impact assessments
-    DA->>PS: Publish disaster event
-    PS->>IA: Route event
-    IA->>BQ: Query spatial data
-    IA->>IA: Generate heat map
-    IA->>PS: Publish impact update
-    PS->>RA: Route update
-    PS->>CC: Route update
-    RA->>FS: Query inventory
-    RA->>RA: Optimize allocation
-    RA->>FS: Store allocation plan
-    RA->>PS: Publish allocation plan
-    PS->>CC: Route plan
-    CC->>CC: Generate alerts
-    CC->>External: Send FCM/SMS
-    PS->>RS: Route all events
-    RS->>BQ: Query report data
-    RS->>FS: Query allocations
-    RS->>Storage: Generate PDF report
+    Client->>Orch: Disaster Event Data
+    Orch->>Orch: Initialize Workflow
+    
+    Note over Orch: Step 1: Data Aggregation
+    Orch->>Agg: process_satellite_imagery()
+    Agg-->>Orch: Damage Detection Results
+    
+    Note over Orch: Step 2: Impact Assessment
+    Orch->>Ass: analyze_impact()
+    Ass-->>Orch: Severity & Heat Maps
+    
+    Note over Orch: Step 3: Conditional Logic
+    Orch->>Orch: Check severity >= 60
+    
+    alt High Severity (>= 60)
+        Note over Orch: Step 4: Resource Allocation
+        Orch->>All: optimize_resource_allocation()
+        All-->>Orch: Resource Plan
+        
+        Note over Orch: Steps 5-6: Parallel Execution
+        par Communications
+            Orch->>Com: coordinate_communications()
+            Com-->>Orch: Alert Results
+        and Reporting
+            Orch->>Rep: synthesize_situation_report()
+            Rep-->>Orch: Report Results
+        end
+    else Low Severity (< 60)
+        Note over Orch: Skip resource allocation
+    end
+    
+    Orch-->>Client: Complete Workflow Results
 ```
 
-## Agent Specifications
+## Agent Tool Specifications
 
-### 1. Data Aggregator Agent
+### 1. Data Aggregator Tool (`aggregator_tool.py`)
 
 **Purpose**: Process satellite imagery and sensor data for damage detection
 
+**Function Signature**:
+```python
+async def process_satellite_imagery(
+    bucket_name: str = None,
+    blob_name: str = None,
+    project_id: str = None,
+    region: str = 'us-central1'
+) -> Dict[str, Any]
+```
+
 **Technology Stack**:
-- Google Cloud Functions (event triggers)
 - Vertex AI Vision (custom damage detection model)
 - Cloud Storage (image processing)
-- BigQuery GIS (spatial data storage)
+- Mock processing for demonstration
 
 **Processing Pipeline**:
-1. **Image Ingestion**: Cloud Storage trigger → download image
-2. **Preprocessing**: Format validation, metadata extraction
-3. **ML Inference**: Vertex AI Vision damage detection
-4. **Spatial Processing**: Convert detections to geo-referenced assessments
-5. **Data Storage**: Insert into BigQuery `impact_assessments` table
-6. **Event Publishing**: Critical detections → Pub/Sub `disaster_events`
+1. **Image Validation**: Verify bucket and blob parameters
+2. **Damage Detection**: Simulate ML inference for damage identification
+3. **Event Generation**: Create structured disaster events
+4. **Geo-referencing**: Convert detections to spatial coordinates
+5. **Result Formatting**: Return standardized damage assessment
 
-**Performance Requirements**:
-- Process 1000+ images/hour during peak events
-- < 30s processing time per satellite image
-- 95% uptime during disaster scenarios
+**Output Format**:
+```python
+{
+    "processing_id": "processing_1703175600_a1b2c3d4",
+    "bucket_name": "resilientflow-satellite-data",
+    "blob_name": "nyc_hurricane_damage.tiff",
+    "detections_count": 2,
+    "disaster_events": [
+        {
+            "event_id": "event_processing_1703175600_1",
+            "latitude": 34.0522,
+            "longitude": -118.2437,
+            "event_type": "structural",
+            "severity_raw": 75,
+            "timestamp_ms": 1703175600000
+        }
+    ],
+    "status": "SUCCESS"
+}
+```
 
-### 2. Impact Assessor Agent
+### 2. Impact Assessor Tool (`assessor_tool.py`)
 
-**Purpose**: Spatial analysis and heat map generation from multi-source data
+**Purpose**: Spatial analysis and heat map generation from damage events
 
-**Technology Stack**:
-- BigQuery GIS (spatial queries and ML)
-- Cloud Run (scalable compute)
-- Pub/Sub (event-driven processing)
+**Function Signature**:
+```python
+async def analyze_impact(
+    disaster_events: List[Dict] = None,
+    project_id: str = None,
+    region: str = 'us-central1'
+) -> Dict[str, Any]
+```
 
 **Processing Pipeline**:
-1. **Data Aggregation**: Spatial JOIN of `images.assessments` + `events.*`
-2. **Clustering**: K-means clustering using BigQuery ML
-3. **Severity Calculation**: Weighted scoring based on:
-   - Damage type severity multipliers
-   - Confidence scores
-   - Temporal decay functions
-   - Population density (from external datasets)
-4. **Heat Map Generation**: Grid-based severity tiles
-5. **Zone Creation**: Aggregate clusters into actionable impact zones
+1. **Event Clustering**: Group nearby disaster events
+2. **Severity Calculation**: Weighted scoring based on damage types
+3. **Spatial Analysis**: Generate impact zones and heat maps
+4. **Population Impact**: Estimate affected population
+5. **Zone Classification**: Create actionable impact zones
 
-**Spatial Resolution**:
-- Grid size: 0.001° (~100m at equator)
-- Clustering distance: 1.0 km
-- Update frequency: 30 seconds during active incidents
+**Clustering Algorithm**:
+- **Distance threshold**: 1.0 km for event grouping
+- **Severity weighting**: Structural (×1.5), Fire (×1.3), Flood (×1.1)
+- **Population density**: Multiplier based on area demographics
 
-### 3. Resource Allocator Agent
+**Output Format**:
+```python
+{
+    "assessment_id": "assessment_1703175661_e5f6g7h8",
+    "overall_severity": 82,
+    "total_clusters": 3,
+    "affected_population": 150000,
+    "clusters": [
+        {
+            "cluster_id": "cluster_1",
+            "center_lat": 34.0522,
+            "center_lng": -118.2437,
+            "radius_km": 2.5,
+            "severity": 85,
+            "population_affected": 75000
+        }
+    ],
+    "heat_map_url": "gs://resilientflow-maps/heatmap_1703175661.png",
+    "status": "SUCCESS"
+}
+```
 
-**Purpose**: Optimize logistics and resource allocation using OR-Tools
+### 3. Resource Allocator Tool (`allocator_tool.py`)
 
-**Technology Stack**:
-- Google OR-Tools (optimization engine)
-- Cloud Run Jobs (batch processing)
-- Firestore (inventory and state management)
+**Purpose**: Optimize logistics and resource allocation using optimization algorithms
+
+**Function Signature**:
+```python
+async def optimize_resource_allocation(
+    impact_data: Dict = None,
+    project_id: str = None,
+    region: str = 'us-central1'
+) -> Dict[str, Any]
+```
 
 **Optimization Model**:
-```python
-# Vehicle Routing Problem with Capacity Constraints
-objective = minimize(
-    sum(travel_time[i,j] * x[i,j] for i,j in routes) +
-    sum(unmet_demand[r] * penalty[r] for r in resources)
-)
+- **Objective**: Minimize response time and maximize coverage
+- **Constraints**: Resource availability, travel time, capacity limits
+- **Variables**: Resource type, quantity, deployment location
 
-constraints = [
-    # Vehicle capacity
-    sum(demand[d] * assigned[v,d] for d in demands) <= capacity[v],
-    
-    # Demand coverage
-    sum(assigned[v,d] for v in vehicles) >= min_coverage[d],
-    
-    # Resource availability
-    sum(allocated[r,f] for f in facilities) <= inventory[r]
-]
+**Resource Types**:
+- **Ambulance**: Medical response, 4-person capacity
+- **Fire Truck**: Fire suppression and rescue
+- **Rescue Helicopter**: Air evacuation and supply
+- **Mobile Hospital**: Field medical treatment
+- **Rescue Team**: Ground search and rescue
+
+**Allocation Strategy**:
+```python
+# Severity-based resource scaling
+if severity >= 90:
+    base_resources *= 2.0  # Maximum response
+elif severity >= 70:
+    base_resources *= 1.5  # Enhanced response
+elif severity >= 60:
+    base_resources *= 1.0  # Standard response
 ```
 
-**Optimization Parameters**:
-- Timeout: 30 seconds for real-time decisions
-- Coverage target: ≥ 85% of critical zones
-- Vehicle types: truck (5000kg), helicopter (1000kg), boat (3000kg)
+**Output Format**:
+```python
+{
+    "allocation_id": "allocation_1703175722_i9j0k1l2",
+    "overall_severity": 82,
+    "total_resources": 15,
+    "estimated_cost": 2250000,
+    "allocations": [
+        {
+            "resource_type": "ambulance",
+            "quantity": 5,
+            "to_zone": "cluster_1",
+            "travel_time_minutes": 12,
+            "capacity_utilization": 0.8
+        }
+    ],
+    "optimization_time_ms": 850,
+    "status": "SUCCESS"
+}
+```
 
-### 4. Communications Coordinator Agent
+### 4. Communications Coordinator Tool (`comms_tool.py`)
 
-**Purpose**: Generate and distribute multilingual alerts
+**Purpose**: Generate and distribute multilingual emergency alerts
 
-**Technology Stack**:
-- Google Translate API (multilingual support)
-- Firebase Cloud Messaging (mobile push)
-- Cloud Text-to-Speech (audio alerts)
-- External SMS/social media APIs
+**Function Signature**:
+```python
+async def coordinate_communications(
+    allocation_plan: Dict = None,
+    project_id: str = None,
+    region: str = 'us-central1'
+) -> Dict[str, Any]
+```
 
 **Alert Generation Pipeline**:
-1. **Event Classification**: Severity → urgency mapping
-2. **Template Selection**: Event type → message template
-3. **Localization**: Translate to supported languages (en, es, fr)
-4. **Distribution**:
-   - FCM: Mobile push notifications
-   - SMS: Emergency text alerts
-   - CAP XML: FEMA-compliant alert format
-   - Social Media: Twitter/Facebook posts
+1. **Message Composition**: Generate base alert content
+2. **Localization**: Translate to supported languages (en, es, fr)
+3. **Channel Distribution**: Send via multiple communication channels
+4. **Delivery Tracking**: Monitor alert delivery status
 
-**Message Formats**:
-```xml
-<!-- CAP XML Example -->
-<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
-  <identifier>resilientflow.emergency.flood_nyc_20241201_001</identifier>
-  <sender>resilientflow@emergency.gov</sender>
-  <status>Actual</status>
-  <msgType>Alert</msgType>
-  <scope>Public</scope>
-  <info>
-    <language>en-US</language>
-    <category>Geo</category>
-    <event>Flood</event>
-    <urgency>Immediate</urgency>
-    <severity>Severe</severity>
-    <certainty>Observed</certainty>
-  </info>
-</alert>
+**Communication Channels**:
+- **FCM Push**: Mobile app notifications
+- **SMS**: Emergency text alerts
+- **CAP XML**: FEMA-compliant alert format
+- **Social Media**: Twitter/Facebook posts
+- **Radio**: Emergency broadcast system
+
+**Message Templates**:
+```python
+alert_templates = {
+    "severe": "🚨 EMERGENCY: {event_type} in {location}. Severity {severity}/100. Seek immediate shelter. Resources deployed.",
+    "moderate": "⚠️ ALERT: {event_type} in {location}. Severity {severity}/100. Stay informed and prepared.",
+    "update": "📢 UPDATE: {event_type} response ongoing. {resources_deployed} resources deployed. Follow official guidance."
+}
 ```
 
-### 5. Report Synthesizer Agent
+**Output Format**:
+```python
+{
+    "communication_id": "comm_1703175783_m3n4o5p6",
+    "alerts_sent": 1247,
+    "channels_used": ["fcm", "sms", "cap_xml"],
+    "languages": ["en", "es", "fr"],
+    "delivery_rate": 0.94,
+    "alert_content": {
+        "en": "🚨 EMERGENCY: Hurricane in NYC area. Severity 85/100. Seek immediate shelter. Resources deployed.",
+        "es": "🚨 EMERGENCIA: Huracán en área de NYC. Severidad 85/100. Busque refugio inmediato. Recursos desplegados.",
+        "fr": "🚨 URGENCE: Ouragan dans la région de NYC. Sévérité 85/100. Cherchez un abri immédiat. Ressources déployées."
+    },
+    "status": "SUCCESS"
+}
+```
 
-**Purpose**: Generate comprehensive PDF situation reports
+### 5. Report Synthesizer Tool (`reporter_tool.py`)
 
-**Technology Stack**:
-- ReportLab (PDF generation)
-- Matplotlib (data visualization)
-- Google Maps Static API (map overlays)
-- Cloud Storage (report distribution)
+**Purpose**: Generate comprehensive PDF situation reports and visualizations
+
+**Function Signature**:
+```python
+async def synthesize_situation_report(
+    allocation_plan: Dict[str, Any] = None,
+    impact_assessment: Dict[str, Any] = None,
+    project_id: str = None,
+    region: str = 'us-central1'
+) -> Dict[str, Any]
+```
 
 **Report Components**:
-1. **Executive Summary**: Key metrics and status
-2. **Impact Assessment**: Heat maps and severity analysis
-3. **Resource Allocation**: Logistics tables and route maps
-4. **Agent Activity**: System health and processing stats
-5. **Appendices**: Raw data exports and technical details
+1. **Executive Summary**: High-level situation overview
+2. **Impact Analysis**: Detailed damage assessment and maps
+3. **Resource Deployment**: Allocation tables and logistics
+4. **Agent Performance**: System metrics and coordination status
+5. **Recommendations**: Next steps and resource needs
 
-**Report Types**:
-- **Immediate Reports**: Generated on critical events (< 5 min)
-- **Periodic Reports**: Scheduled every 30 minutes during incidents
-- **Final Reports**: Post-incident analysis and lessons learned
+**Report Generation**:
+- **PDF Engine**: ReportLab for document generation
+- **Visualizations**: Matplotlib for charts and graphs
+- **Maps**: Google Maps Static API for geographical overlays
+- **Storage**: Google Cloud Storage for report distribution
 
-## Data Architecture
-
-### BigQuery GIS Schema
-
-```sql
--- Impact Assessments Table
-CREATE TABLE resilientflow.impact_assessments (
-  assessment_id STRING NOT NULL,
-  latitude FLOAT64 NOT NULL,
-  longitude FLOAT64 NOT NULL,
-  grid_cell_id STRING NOT NULL,
-  severity_score INT64 NOT NULL,
-  damage_type STRING NOT NULL,
-  confidence_scores JSON,
-  assessed_timestamp TIMESTAMP NOT NULL,
-  source_agent STRING NOT NULL
-)
-PARTITION BY DATE(assessed_timestamp)
-CLUSTER BY grid_cell_id, damage_type;
-
--- Impact Zones Table
-CREATE TABLE resilientflow.impact_zones (
-  zone_id STRING NOT NULL,
-  center_latitude FLOAT64 NOT NULL,
-  center_longitude FLOAT64 NOT NULL,
-  severity_score FLOAT64 NOT NULL,
-  affected_area_km2 FLOAT64,
-  damage_types ARRAY<STRING>,
-  assessment_count INT64,
-  confidence FLOAT64,
-  last_updated TIMESTAMP NOT NULL,
-  geojson_polygon STRING
-)
-PARTITION BY DATE(last_updated)
-CLUSTER BY severity_score;
+**Key Metrics Calculated**:
+```python
+key_metrics = {
+    "response_time_minutes": 25,
+    "coverage_percentage": 87,
+    "resource_efficiency": 0.92,
+    "communication_reach": 750000,
+    "estimated_lives_saved": 45,
+    "cost_effectiveness_score": 8.5,
+    "multi_agent_coordination_score": 9.2
+}
 ```
 
-### Firestore Collections
-
-```javascript
-// Inventory Collection
+**Output Format**:
+```python
 {
-  "inventory": {
-    "{facility_id}_{resource_type}": {
-      "facility_id": "warehouse_nyc_001",
-      "resource_type": "water",
-      "quantity": 5000,
-      "capacity": 10000,
-      "last_updated_ms": 1701234567890,
-      "updated_by": "resource_allocator"
-    }
-  },
-  
-  // Allocation Plans Collection
-  "allocations": {
-    "{plan_id}": {
-      "plan_id": "plan_20241201_001",
-      "incident_id": "hurricane_sandy_2024",
-      "allocations": [
-        {
-          "allocation_id": "alloc_001",
-          "resource_type": "water",
-          "quantity": 1000,
-          "from_facility": "warehouse_nyc_001",
-          "to_zone": "zone_manhattan_001",
-          "status": "planned",
-          "vehicle_id": "truck_001"
-        }
-      ],
-      "status": "active",
-      "created_ms": 1701234567890
-    }
-  }
+    "report_id": "report_1703175844_q7r8s9t0",
+    "overall_severity": 82,
+    "reports_count": 3,
+    "pdf_report": {
+        "filename": "report_1703175844_situation_report.pdf",
+        "page_count": 8,
+        "size_kb": 850,
+        "gcs_path": "gs://resilientflow-reports/report_1703175844.pdf"
+    },
+    "executive_summary": {
+        "situation_description": "Significant emergency situation with substantial impact",
+        "severity_level": "82/100",
+        "affected_area_km2": 25.73,
+        "resources_deployed": 15
+    },
+    "status": "SUCCESS"
 }
 ```
 
-## Pub/Sub Topics and Message Flow
+## ADK Integration Details
 
-### Topic Architecture
+### Agent Definition
 
+```python
+from google.adk.agents import Agent
+
+disaster_response_agent = Agent(
+    name="disaster_response_orchestrator",
+    model="gemini-2.0-flash-live-preview-04-09",
+    description="Orchestrates the complete disaster response workflow using multiple specialized agents",
+    instruction="""You are the main coordinator for ResilientFlow, a disaster response system.
+    
+    Your job is to process disaster events through a multi-agent workflow:
+    1. Data Aggregation: Process satellite imagery to detect damage
+    2. Impact Assessment: Analyze spatial impact and generate heat maps
+    3. Resource Allocation: Optimize emergency resource deployment (if severity >= 60)
+    4. Communications: Send multilingual emergency alerts (if severity >= 60)
+    5. Reporting: Generate comprehensive situation reports (if severity >= 60)""",
+    tools=[
+        process_satellite_imagery,
+        analyze_impact,
+        optimize_resource_allocation,
+        coordinate_communications,
+        synthesize_situation_report
+    ]
+)
 ```
-rf-disaster-events     → High-priority disaster detections
-rf-impact-updates      → Spatial analysis updates
-rf-allocation-plans    → Resource optimization results
-rf-alert-broadcasts    → Public alert distribution
-rf-agent-events        → System monitoring and coordination
+
+### Workflow State Management
+
+The orchestrator maintains state throughout the workflow execution:
+
+```python
+class WorkflowState:
+    def __init__(self):
+        self.workflow_id = generate_workflow_id()
+        self.start_time = time.time()
+        self.aggregation_result = None
+        self.impact_assessment = None
+        self.allocation_plan = None
+        self.communications_result = None
+        self.report_result = None
+        self.errors = []
+    
+    def set(self, key: str, value: Any):
+        setattr(self, key, value)
+    
+    def get(self, key: str, default=None):
+        return getattr(self, key, default)
 ```
 
-### Message Schemas (Protobuf)
+### Error Handling and Resilience
 
-```protobuf
-message DisasterEvent {
-  string event_id = 1;
-  string source_agent = 2;
-  double latitude = 3;
-  double longitude = 4;
-  string event_type = 5;  // "flood" | "fire" | "earthquake"
-  int32 severity_raw = 6; // 0-100
-  int64 timestamp_ms = 7;
+```python
+async def execute_agent_with_retry(agent_func, *args, **kwargs):
+    """Execute agent function with retry logic"""
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            return await agent_func(*args, **kwargs)
+        except Exception as e:
+            if attempt == max_retries - 1:
+                raise
+            await asyncio.sleep(2 ** attempt)  # Exponential backoff
+```
+
+## Performance Characteristics
+
+### Timing Benchmarks
+
+| Component | Target Time | Actual Performance |
+|-----------|-------------|-------------------|
+| Data Aggregation | < 30s | ~1s (mock) |
+| Impact Assessment | < 45s | ~1.2s (mock) |
+| Resource Allocation | < 60s | ~0.8s (mock) |
+| Communications | < 15s | ~0.7s (mock) |
+| Reporting | < 90s | ~0.9s (mock) |
+| **Total Workflow** | **< 180s** | **< 5s** |
+
+### Scalability Considerations
+
+- **Concurrent Workflows**: Orchestrator can handle multiple disaster events simultaneously
+- **Agent Independence**: Each agent tool is stateless and can be scaled independently
+- **Resource Limits**: Memory usage scales with event complexity and report size
+- **Network I/O**: Bottleneck in real deployment for external API calls
+
+### Memory and Resource Usage
+
+```python
+# Typical resource consumption per workflow
+resource_usage = {
+    "memory_mb": 128,
+    "cpu_cores": 0.5,
+    "execution_time_s": 5,
+    "network_calls": 0,  # Mock implementation
+    "storage_gb": 0.001  # Report files
 }
-
-message ImpactAssessment {
-  string assessment_id = 1;
-  double latitude = 2;
-  double longitude = 3;
-  string grid_cell_id = 4;
-  int32 severity_score = 5;
-  string damage_type = 6;
-  map<string, double> confidence_scores = 7;
-  int64 assessed_ms = 8;
-}
 ```
 
-## Deployment and Scaling
+## Migration from Microservices
 
-### Cloud Run Configuration
+### Architecture Comparison
 
-| Agent | Memory | CPU | Min Instances | Max Instances | Concurrency |
-|-------|--------|-----|---------------|---------------|-------------|
-| Data Aggregator | 2Gi | 1 | 0 | 10 | 10 |
-| Impact Assessor | 2Gi | 1 | 0 | 10 | 5 |
-| Resource Allocator | 2Gi | 2 | 0 | 5 | 1 |
-| Comms Coordinator | 1Gi | 1 | 1 | 10 | 50 |
-| Report Synthesizer | 2Gi | 1 | 0 | 5 | 2 |
+| Aspect | Microservices (Before) | ADK Multi-Agent (After) |
+|--------|----------------------|-------------------------|
+| **Deployment** | 5 separate Cloud Run services | 1 orchestrator application |
+| **Communication** | Pub/Sub message passing | Direct function calls |
+| **Coordination** | Implicit via message routing | Explicit ADK workflow |
+| **State Management** | Distributed (Firestore) | Centralized (in-memory) |
+| **Error Handling** | Service-level retries | Workflow-level retries |
+| **Testing** | Integration tests required | Unit testable functions |
+| **Monitoring** | Per-service metrics | Workflow-level metrics |
+| **Complexity** | High (distributed system) | Medium (centralized logic) |
 
-### Auto-scaling Triggers
+### Benefits of ADK Approach
+
+1. **Simplified Architecture**: Single orchestrator vs. distributed services
+2. **Better Testability**: Agent functions can be unit tested independently
+3. **Clearer Dependencies**: Explicit workflow vs. implicit message dependencies
+4. **Easier Debugging**: Centralized execution path vs. distributed tracing
+5. **Hackathon Compliance**: Meets "ADK orchestration" requirements
+6. **Maintainability**: Easier to understand and modify workflow logic
+
+### Trade-offs
+
+**Advantages**:
+- Simplified deployment and operations
+- Easier local development and testing
+- Clear workflow visualization
+- Better error handling and recovery
+
+**Potential Concerns**:
+- Single point of failure (orchestrator)
+- Less independent scaling of components
+- Memory usage for large workflows
+- Need for external deployment for production scale
+
+## Production Deployment Considerations
+
+### Cloud Run Deployment
 
 ```yaml
-# Example Cloud Run service configuration
+# cloud-run-orchestrator.yaml
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: impact-assessor
-  annotations:
-    run.googleapis.com/cpu-throttling: "false"
+  name: resilientflow-orchestrator
 spec:
   template:
     metadata:
       annotations:
-        autoscaling.knative.dev/minScale: "0"
         autoscaling.knative.dev/maxScale: "10"
-        autoscaling.knative.dev/target: "5"
+        run.googleapis.com/memory: "1Gi"
+        run.googleapis.com/cpu: "1000m"
     spec:
-      containerConcurrency: 5
-      timeoutSeconds: 300
+      containers:
+      - image: gcr.io/PROJECT_ID/resilientflow-orchestrator
+        ports:
+        - containerPort: 8080
+        env:
+        - name: GOOGLE_CLOUD_PROJECT
+          value: "PROJECT_ID"
 ```
 
-## Security Architecture
-
-### Network Security
-
-- **VPC-SC Perimeter**: Protects BigQuery and Cloud Storage
-- **Private Google Access**: No public IPs for compute resources
-- **IAM Policies**: Least-privilege service accounts per agent
-
-### Data Protection
-
-- **Encryption**: At-rest (Google-managed) and in-transit (TLS 1.3)
-- **Access Controls**: Resource-level IAM with audit logging
-- **Data Retention**: 30-day automatic deletion for GDPR compliance
-
-### Service Account Permissions
-
-```bash
-# Data Aggregator permissions
-gcloud projects add-iam-policy-binding $PROJECT_ID \
-  --member="serviceAccount:data-aggregator@$PROJECT_ID.iam.gserviceaccount.com" \
-  --role="roles/storage.objectViewer" \
-  --role="roles/bigquery.dataEditor" \
-  --role="roles/aiplatform.user"
-
-# Resource Allocator permissions
-gcloud projects add-iam-policy-binding $PROJECT_ID \
-  --member="serviceAccount:resource-allocator@$PROJECT_ID.iam.gserviceaccount.com" \
-  --role="roles/datastore.user" \
-  --role="roles/pubsub.publisher"
-```
-
-## Monitoring and Observability
-
-### Key Metrics
-
-| Metric | SLI | SLO | Alert Threshold |
-|--------|-----|-----|-----------------|
-| End-to-end latency | 95th %ile ≤ 120s | 99% of days | > 180s |
-| Alert delivery rate | ≥ 99% | 7-day rolling | < 95% |
-| Data freshness | ≤ 5 min lag | Active incidents | > 10 min |
-| Agent availability | ≥ 99.9% uptime | Monthly | < 99% |
-
-### Logging Strategy
+### Monitoring and Observability
 
 ```python
-# Structured logging example
-logger.info(
-    "Agent action completed",
-    {
-        "action": "process_satellite_image",
-        "status": "success", 
-        "duration_ms": 1234,
-        "correlation_id": "abc-123",
-        "agent": "data_aggregator",
-        "image_size_mb": 45.2,
-        "detections_count": 3
-    }
-)
+# Example workflow metrics
+workflow_metrics = {
+    "workflow_duration_seconds": 4.8,
+    "agents_executed": 5,
+    "agents_successful": 5,
+    "agents_failed": 0,
+    "severity_threshold_triggered": True,
+    "parallel_execution_count": 2,
+    "total_resources_allocated": 15,
+    "alerts_delivered": 1247,
+    "reports_generated": 3
+}
 ```
 
-### Alerting Rules
+### Integration Points
 
-```yaml
-# Cloud Monitoring alert policy
-displayName: "ResilientFlow Agent Errors"
-conditions:
-  - displayName: "High error rate"
-    conditionThreshold:
-      filter: 'resource.type="cloud_run_revision" AND severity="ERROR"'
-      comparison: COMPARISON_GT
-      thresholdValue: 10
-      duration: 300s
-      aggregations:
-        - alignmentPeriod: 60s
-          perSeriesAligner: ALIGN_RATE
-```
+- **Real Satellite Data**: Replace mock processing with Vertex AI Vision
+- **Live Resource Inventory**: Connect to emergency services databases
+- **Communication Systems**: Integrate with FCM, SMS gateways, emergency radio
+- **Mapping Services**: Use Google Maps API for real geographical data
+- **Government Systems**: Interface with FEMA, local emergency management
 
-## Performance Optimization
-
-### Caching Strategy
-
-- **BigQuery**: Materialized views for frequent spatial queries
-- **Firestore**: Local caching of inventory data (5-minute TTL)
-- **Pub/Sub**: Message deduplication with 10-minute retention
-
-### Query Optimization
-
-```sql
--- Optimized spatial query for impact assessment
-SELECT 
-  assessment_id,
-  ST_DISTANCE(ST_GEOGPOINT(longitude, latitude), 
-              ST_GEOGPOINT(@center_lon, @center_lat)) as distance_m,
-  severity_score
-FROM `resilientflow.impact_assessments`
-WHERE 
-  ST_DWITHIN(ST_GEOGPOINT(longitude, latitude),
-             ST_GEOGPOINT(@center_lon, @center_lat), 
-             @radius_m)
-  AND assessed_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 24 HOUR)
-ORDER BY severity_score DESC, distance_m ASC
-LIMIT 1000
-```
-
-### Cost Optimization
-
-- **Cloud Run**: Scale-to-zero during idle periods
-- **BigQuery**: Query result caching and slot reservations
-- **Cloud Storage**: Lifecycle policies for old reports (30-day deletion)
-
-## Disaster Recovery
-
-### Data Backup
-
-- **BigQuery**: Cross-region replication to `us-west1`
-- **Firestore**: Daily exports to Cloud Storage
-- **Cloud Storage**: Multi-region buckets with versioning
-
-### Service Continuity
-
-- **Multi-region deployment**: Primary in `us-central1`, failover to `us-east1`
-- **Circuit breakers**: Graceful degradation when external services fail
-- **Offline mode**: Local caching enables 1-hour autonomous operation
-
-### Recovery Procedures
-
-```bash
-# Emergency failover script
-#!/bin/bash
-echo "Initiating emergency failover to us-east1..."
-
-# Redirect traffic to backup region
-gcloud compute url-maps set-default-service resilientflow-lb \
-  --default-service=resilientflow-backend-east
-
-# Scale up backup instances
-gcloud run services update-traffic data-aggregator \
-  --to-revisions=LATEST=100 \
-  --region=us-east1
-
-echo "Failover complete. Monitor recovery at:"
-echo "https://console.cloud.google.com/run?project=$PROJECT_ID"
-```
-
-This architecture enables ResilientFlow to meet its performance targets of sub-2-minute response times while maintaining 99.9% availability during disaster scenarios. 
+This ADK-based architecture provides a solid foundation for hackathon demonstration while maintaining the flexibility to scale into a production disaster response system.

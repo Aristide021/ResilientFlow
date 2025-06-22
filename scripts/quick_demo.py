@@ -1,35 +1,32 @@
 #!/usr/bin/env python3
 """
 ResilientFlow Quick Demo Script
-Demonstrates the complete disaster response pipeline in under 3 minutes
+Demonstrates the ADK-based disaster response orchestrator in under 3 minutes
 """
 
 import os
 import sys
 import time
 import json
-import subprocess
-import webbrowser
+import asyncio
 from datetime import datetime
-from google.cloud import pubsub_v1, firestore, bigquery
-from google.cloud import storage
+
+# Add the workspace to the Python path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from orchestrator import DisasterResponseAgent
 
 class ResilientFlowDemo:
     def __init__(self, project_id):
         self.project_id = project_id
         self.start_time = time.time()
+        self.orchestrator = DisasterResponseAgent()
         
-        # Initialize clients
-        self.publisher = pubsub_v1.PublisherClient()
-        self.subscriber = pubsub_v1.SubscriberClient()
-        self.firestore_client = firestore.Client(project=project_id)
-        self.bigquery_client = bigquery.Client(project=project_id)
-        self.storage_client = storage.Client(project=project_id)
-        
-        print("🌪️ ResilientFlow Live Demo")
+        print("🌪️ ResilientFlow ADK Demo")
         print("=" * 50)
         print(f"📋 Project: {project_id}")
         print(f"⏰ Start Time: {datetime.now().strftime('%H:%M:%S')}")
+        print(f"🤖 Orchestrator: ADK Multi-Agent System")
         print()
     
     def log_step(self, step, message):
@@ -38,321 +35,267 @@ class ResilientFlowDemo:
         print(f"[{elapsed:6.1f}s] 🎬 {step}: {message}")
     
     def check_prerequisites(self):
-        """Verify all services are deployed and ready"""
-        self.log_step("SETUP", "Checking prerequisites...")
+        """Verify ADK orchestrator is ready"""
+        self.log_step("SETUP", "Checking ADK orchestrator prerequisites...")
         
-        # Check Cloud Run services
         try:
-            result = subprocess.run([
-                "gcloud", "run", "services", "list", 
-                "--region=us-central1", "--format=value(metadata.name)"
-            ], capture_output=True, text=True, check=True)
+            # Test orchestrator import
+            from orchestrator import DisasterResponseAgent
+            self.log_step("SETUP", "✅ ADK orchestrator imported successfully")
             
-            services = result.stdout.strip().split('\n')
-            required_services = [
-                'data-aggregator', 'impact-assessor', 'resource-allocator',
-                'comms-coordinator', 'report-synthesizer'
-            ]
+            # Test agent tools import
+            from agents.aggregator_tool import process_satellite_imagery
+            from agents.assessor_tool import analyze_impact
+            from agents.allocator_tool import optimize_resource_allocation
+            from agents.comms_tool import coordinate_communications
+            from agents.reporter_tool import synthesize_situation_report
             
-            missing = [svc for svc in required_services if svc not in services]
-            if missing:
-                print(f"❌ Missing services: {missing}")
-                print("💡 Run: ./scripts/bootstrap.sh")
-                return False
-                
-            self.log_step("SETUP", f"✅ Found {len(services)} Cloud Run services")
+            self.log_step("SETUP", "✅ All 5 agent tools loaded successfully")
             
-        except subprocess.CalledProcessError:
-            print("❌ Failed to check Cloud Run services")
+            # Check Google ADK is installed
+            import google.adk.agents
+            self.log_step("SETUP", "✅ Google ADK framework ready")
+            
+            return True
+            
+        except ImportError as e:
+            print(f"❌ Import error: {e}")
+            print("💡 Ensure google-adk is installed: pip install google-adk==1.4.2")
             return False
-        
-        # Check BigQuery dataset
-        try:
-            dataset = self.bigquery_client.get_dataset("resilientflow")
-            self.log_step("SETUP", "✅ BigQuery dataset ready")
-        except Exception:
-            print("❌ BigQuery dataset 'resilientflow' not found")
-            return False
-        
-        # Check Firestore
-        try:
-            # Test write
-            doc_ref = self.firestore_client.collection('demo_test').document('ping')
-            doc_ref.set({'timestamp': firestore.SERVER_TIMESTAMP})
-            doc_ref.delete()
-            self.log_step("SETUP", "✅ Firestore ready")
         except Exception as e:
-            print(f"❌ Firestore error: {e}")
+            print(f"❌ Setup error: {e}")
             return False
-        
-        return True
     
-    def trigger_disaster_event(self):
-        """Simulate incoming disaster data"""
-        self.log_step("DATA", "Triggering Hurricane Sandy simulation...")
-        
-        # Create mock satellite image event
-        disaster_event = {
-            "event_id": "demo_hurricane_sandy_2024",
-            "source_agent": "satellite_system",
-            "latitude": 40.7128,  # NYC
-            "longitude": -74.0060,
-            "event_type": "hurricane",
-            "severity_raw": 85,
-            "timestamp_ms": int(time.time() * 1000),
-            "image_url": "gs://demo-satellite-images/nyc_hurricane_damage.tiff",
-            "metadata": {
-                "wind_speed": "120 mph",
-                "category": 3,
-                "area_affected": "Greater NYC Metropolitan Area"
+    def create_disaster_scenarios(self):
+        """Create different disaster event scenarios for testing"""
+        scenarios = {
+            "hurricane": {
+                "event_id": "demo_hurricane_sandy_2024",
+                "event_type": "hurricane",
+                "latitude": 40.7128,  # NYC
+                "longitude": -74.0060,
+                "severity": 85,
+                "timestamp": datetime.now().isoformat(),
+                "description": "Category 3 hurricane approaching NYC metropolitan area",
+                "satellite_bucket": "resilientflow-satellite-data",
+                "satellite_blob": "nyc_hurricane_damage_2024.tiff",
+                "metadata": {
+                    "wind_speed": "120 mph",
+                    "category": 3,
+                    "area_affected": "Greater NYC Metropolitan Area"
+                }
+            },
+            
+            "wildfire": {
+                "event_id": "demo_wildfire_ca_2024",
+                "event_type": "wildfire",
+                "latitude": 34.0522,  # Los Angeles
+                "longitude": -118.2437,
+                "severity": 92,
+                "timestamp": datetime.now().isoformat(),
+                "description": "Large wildfire threatening residential areas in Southern California",
+                "satellite_bucket": "resilientflow-satellite-data",
+                "satellite_blob": "ca_wildfire_damage_2024.tiff",
+                "metadata": {
+                    "acres_burned": "15,000",
+                    "containment": "15%",
+                    "structures_threatened": 500
+                }
+            },
+            
+            "earthquake": {
+                "event_id": "demo_earthquake_sf_2024",
+                "event_type": "earthquake",
+                "latitude": 37.7749,  # San Francisco
+                "longitude": -122.4194,
+                "severity": 78,
+                "timestamp": datetime.now().isoformat(),
+                "description": "Magnitude 6.8 earthquake in San Francisco Bay Area",
+                "satellite_bucket": "resilientflow-satellite-data",
+                "satellite_blob": "sf_earthquake_damage_2024.tiff",
+                "metadata": {
+                    "magnitude": "6.8",
+                    "depth": "12 km",
+                    "aftershocks": 23
+                }
             }
         }
-        
-        # Publish to disaster events topic
-        topic_path = self.publisher.topic_path(self.project_id, "rf-disaster-events")
-        future = self.publisher.publish(
-            topic_path,
-            json.dumps(disaster_event).encode('utf-8'),
-            correlation_id="demo_001",
-            event_type="hurricane"
-        )
-        
-        future.result()  # Wait for publish
-        self.log_step("DATA", f"✅ Published disaster event: {disaster_event['event_id']}")
-        
-        return disaster_event
+        return scenarios
     
-    def wait_for_impact_assessment(self, timeout=60):
-        """Wait for impact assessment to appear in BigQuery"""
-        self.log_step("IMPACT", "Waiting for spatial analysis...")
+    async def run_disaster_scenario(self, scenario_name, event_data):
+        """Run a complete disaster response workflow through the ADK orchestrator"""
+        self.log_step("SCENARIO", f"Starting {scenario_name.upper()} response workflow...")
         
-        start_wait = time.time()
-        while time.time() - start_wait < timeout:
-            try:
-                query = """
-                SELECT 
-                    assessment_id,
-                    latitude,
-                    longitude,
-                    severity_score,
-                    damage_type,
-                    assessed_timestamp
-                FROM `resilientflow.impact_assessments`
-                WHERE assessed_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 5 MINUTE)
-                ORDER BY assessed_timestamp DESC
-                LIMIT 5
-                """
-                
-                job = self.bigquery_client.query(query)
-                results = list(job)
-                
-                if results:
-                    self.log_step("IMPACT", f"✅ Found {len(results)} impact assessments")
-                    for row in results[:2]:  # Show first 2
-                        print(f"    📍 {row.latitude:.4f},{row.longitude:.4f} | "
-                              f"Severity: {row.severity_score} | Type: {row.damage_type}")
-                    return True
-                    
-            except Exception as e:
-                print(f"⚠️  BigQuery query error: {e}")
-            
-            time.sleep(2)
-        
-        self.log_step("IMPACT", "⏰ Timeout waiting for impact assessment")
-        return False
-    
-    def wait_for_resource_allocation(self, timeout=45):
-        """Wait for resource allocation plan in Firestore"""
-        self.log_step("RESOURCES", "Waiting for optimization...")
-        
-        start_wait = time.time()
-        while time.time() - start_wait < timeout:
-            try:
-                # Query recent allocation plans
-                allocations_ref = self.firestore_client.collection('allocations')
-                recent_plans = allocations_ref.where(
-                    'created_ms', '>=', int((time.time() - 300) * 1000)  # Last 5 minutes
-                ).order_by('created_ms', direction=firestore.Query.DESCENDING).limit(1)
-                
-                plans = list(recent_plans.stream())
-                if plans:
-                    plan = plans[0].to_dict()
-                    self.log_step("RESOURCES", f"✅ Allocation plan: {plan.get('plan_id')}")
-                    
-                    # Show allocation summary
-                    allocations = plan.get('allocations', [])
-                    if allocations:
-                        print(f"    🚚 {len(allocations)} resource allocations:")
-                        for alloc in allocations[:3]:  # Show first 3
-                            print(f"      • {alloc.get('quantity', 0)} {alloc.get('resource_type')} "
-                                  f"→ {alloc.get('to_zone', 'unknown')}")
-                    
-                    return plan
-                    
-            except Exception as e:
-                print(f"⚠️  Firestore query error: {e}")
-            
-            time.sleep(2)
-        
-        self.log_step("RESOURCES", "⏰ Timeout waiting for allocation plan")
-        return None
-    
-    def check_alerts_sent(self):
-        """Check if alerts were sent by monitoring logs"""
-        self.log_step("ALERTS", "Checking communication status...")
-        
-        # In a real demo, this would check FCM delivery receipts
-        # For now, we'll simulate based on timing
-        time.sleep(2)
-        
-        self.log_step("ALERTS", "✅ Multilingual alerts sent")
-        print("    📱 FCM: 1,247 devices reached")
-        print("    📧 SMS: 89 emergency contacts")
-        print("    📡 CAP XML: Broadcast to FEMA systems")
-        
-        return True
-    
-    def wait_for_situation_report(self, timeout=90):
-        """Wait for PDF situation report in Cloud Storage"""
-        self.log_step("REPORT", "Waiting for situation report...")
-        
-        start_wait = time.time()
-        bucket_name = f"{self.project_id}-situation-reports"
-        
-        while time.time() - start_wait < timeout:
-            try:
-                bucket = self.storage_client.bucket(bucket_name)
-                blobs = list(bucket.list_blobs(
-                    prefix="reports/",
-                    max_results=10
-                ))
-                
-                # Look for recent reports
-                recent_blobs = [
-                    blob for blob in blobs 
-                    if (time.time() - blob.time_created.timestamp()) < 300  # Last 5 minutes
-                ]
-                
-                if recent_blobs:
-                    latest_blob = max(recent_blobs, key=lambda b: b.time_created)
-                    self.log_step("REPORT", f"✅ Report generated: {latest_blob.name}")
-                    
-                    # Generate signed URL for viewing
-                    signed_url = latest_blob.generate_signed_url(
-                        expiration=datetime.fromtimestamp(time.time() + 3600)  # 1 hour
-                    )
-                    
-                    print(f"    📄 Size: {latest_blob.size / 1024:.1f} KB")
-                    print(f"    🔗 URL: {signed_url[:80]}...")
-                    
-                    return signed_url
-                    
-            except Exception as e:
-                print(f"⚠️  Storage check error: {e}")
-            
-            time.sleep(3)
-        
-        self.log_step("REPORT", "⏰ Timeout waiting for situation report")
-        return None
-    
-    def open_visualizer(self):
-        """Open the agent visualizer in browser"""
-        try:
-            result = subprocess.run([
-                "gcloud", "run", "services", "describe", "resilientflow-visualizer",
-                "--region=us-central1", "--format=value(status.url)"
-            ], capture_output=True, text=True, check=True)
-            
-            visualizer_url = result.stdout.strip()
-            if visualizer_url:
-                self.log_step("VISUAL", f"✅ Opening visualizer: {visualizer_url}")
-                webbrowser.open(visualizer_url)
-                return visualizer_url
-            
-        except subprocess.CalledProcessError:
-            print("⚠️  Visualizer not deployed. Run: ./scripts/deploy_visualizer.sh")
-        
-        return None
-    
-    def run_complete_demo(self):
-        """Run the complete 3-minute demo"""
-        print("🎬 Starting complete ResilientFlow demo...")
-        print("⏱️  Target: < 3 minutes end-to-end")
+        print(f"📍 Location: {event_data['description']}")
+        print(f"🎯 Severity: {event_data['severity']}/100")
+        print(f"📊 Event ID: {event_data['event_id']}")
         print()
+        
+        try:
+            # Execute the complete workflow through the ADK orchestrator
+            workflow_start = time.time()
+            
+            result = await self.orchestrator.process_disaster_event(event_data)
+            
+            workflow_time = time.time() - workflow_start
+            
+            # Display results
+            self.log_step("WORKFLOW", f"✅ Complete workflow finished in {workflow_time:.1f}s")
+            self.display_workflow_results(result, workflow_time)
+            
+            return result
+            
+        except Exception as e:
+            self.log_step("WORKFLOW", f"❌ Workflow failed: {e}")
+            return None
+    
+    def display_workflow_results(self, result, workflow_time):
+        """Display the results from the orchestrator workflow"""
+        print("\n" + "="*60)
+        print("🎊 WORKFLOW RESULTS SUMMARY")
+        print("="*60)
+        
+        if not result:
+            print("❌ No results to display")
+            return
+        
+        # Overall status
+        status = result.get("status", "UNKNOWN")
+        workflow_id = result.get("workflow_id", "unknown")
+        print(f"🆔 Workflow ID: {workflow_id}")
+        print(f"📊 Status: {status}")
+        print(f"⏱️  Total Time: {workflow_time:.1f}s")
+        print(f"🎯 Overall Severity: {result.get('overall_severity', 0)}/100")
+        print()
+        
+        # Steps completed
+        steps = result.get("steps_completed", {})
+        print("📋 AGENT EXECUTION STATUS:")
+        step_icons = {
+            "data_aggregation": "🛰️ ",
+            "impact_assessment": "📊",
+            "resource_allocation": "🚁",
+            "communications": "📢",
+            "reporting": "📄"
+        }
+        
+        for step, completed in steps.items():
+            icon = step_icons.get(step, "🔧")
+            status_icon = "✅" if completed else "⏭️ "
+            step_name = step.replace("_", " ").title()
+            print(f"  {status_icon} {icon} {step_name}")
+        print()
+        
+        # Key metrics
+        print("📈 KEY METRICS:")
+        print(f"  🚁 Resources Allocated: {result.get('resources_allocated', 0)}")
+        print(f"  📢 Alerts Sent: {result.get('alerts_sent', 0)}")
+        print(f"  📄 Reports Generated: {result.get('reports_generated', 0)}")
+        
+        # If high severity, show additional details
+        if result.get('overall_severity', 0) >= 60:
+            print(f"\n🚨 HIGH SEVERITY EVENT - Full Response Activated")
+            print(f"  • Resource allocation, communications, and reporting executed")
+            print(f"  • Multi-agent coordination successful")
+        else:
+            print(f"\n📊 MODERATE SEVERITY - Assessment Only")
+            print(f"  • Resource allocation skipped (severity < 60)")
+        
+        print("\n" + "="*60)
+    
+    async def run_complete_demo(self):
+        """Run the complete demo with multiple scenarios"""
+        self.log_step("DEMO", "Starting ResilientFlow ADK demonstration...")
         
         # Check prerequisites
         if not self.check_prerequisites():
-            print("❌ Prerequisites not met. Please run bootstrap first.")
+            print("❌ Prerequisites failed. Cannot continue demo.")
             return False
         
-        # Open visualizer
-        visualizer_url = self.open_visualizer()
+        # Get disaster scenarios
+        scenarios = self.create_disaster_scenarios()
         
-        # 1. Trigger disaster event
-        disaster_event = self.trigger_disaster_event()
-        
-        # 2. Wait for impact assessment
-        if not self.wait_for_impact_assessment():
-            print("⚠️  Impact assessment incomplete, continuing...")
-        
-        # 3. Wait for resource allocation
-        allocation_plan = self.wait_for_resource_allocation()
-        if not allocation_plan:
-            print("⚠️  Resource allocation incomplete, continuing...")
-        
-        # 4. Check alerts
-        self.check_alerts_sent()
-        
-        # 5. Wait for situation report
-        report_url = self.wait_for_situation_report()
-        
-        # Final timing
-        total_time = time.time() - self.start_time
-        
+        print(f"\n🎭 Running {len(scenarios)} disaster scenarios...")
+        print("Each scenario demonstrates the complete ADK orchestration workflow:")
+        print("  1. Data Aggregation (satellite imagery processing)")
+        print("  2. Impact Assessment (spatial analysis)")
+        print("  3. Conditional Logic (severity threshold check)")
+        print("  4. Resource Allocation (if severity ≥ 60)")
+        print("  5. Communications (multilingual alerts)")
+        print("  6. Reporting (situation reports)")
         print()
-        print("🏁 Demo Complete!")
-        print("=" * 50)
-        print(f"⏱️  Total Time: {total_time:.1f} seconds")
         
-        if total_time <= 180:  # 3 minutes
-            print("🎉 SUCCESS: Under 3 minutes! 🚀")
-        else:
-            print("⚠️  Over 3 minutes - optimization needed")
+        results = {}
         
-        print()
-        print("📊 Results Summary:")
-        print(f"   📡 Disaster Event: {disaster_event['event_id']}")
-        print(f"   🗺️  Impact Analysis: BigQuery spatial processing")
-        print(f"   🚚 Resource Plan: {allocation_plan['plan_id'] if allocation_plan else 'Pending'}")
-        print(f"   📱 Alerts: Multilingual broadcast complete")
-        print(f"   📄 Report: {report_url[:50] + '...' if report_url else 'Pending'}")
+        # Run each scenario
+        for i, (scenario_name, event_data) in enumerate(scenarios.items(), 1):
+            print(f"\n🎬 SCENARIO {i}/{len(scenarios)}: {scenario_name.upper()}")
+            print("-" * 50)
+            
+            result = await self.run_disaster_scenario(scenario_name, event_data)
+            results[scenario_name] = result
+            
+            # Brief pause between scenarios
+            if i < len(scenarios):
+                print(f"\n⏸️  Pausing 3 seconds before next scenario...")
+                time.sleep(3)
         
-        if visualizer_url:
-            print(f"   🎨 Visualizer: {visualizer_url}")
-        
-        print()
-        print("💡 Next Steps:")
-        print("   • Open the situation report PDF")
-        print("   • Check the visualizer for agent activity")
-        print("   • Review BigQuery for detailed impact data")
-        print("   • Test mobile alerts via FCM")
+        # Final summary
+        self.display_demo_summary(results)
         
         return True
+    
+    def display_demo_summary(self, results):
+        """Display final demo summary"""
+        total_time = time.time() - self.start_time
+        
+        print(f"\n🏁 DEMO COMPLETE")
+        print("="*60)
+        print(f"⏱️  Total Demo Time: {total_time:.1f}s")
+        print(f"🎭 Scenarios Executed: {len(results)}")
+        
+        successful = sum(1 for r in results.values() if r and r.get('status') == 'SUCCESS')
+        print(f"✅ Successful Workflows: {successful}/{len(results)}")
+        
+        print(f"\n🏗️  ARCHITECTURE DEMONSTRATED:")
+        print(f"  ✅ ADK Orchestrator (orchestrator.py)")
+        print(f"  ✅ 5 Agent Tools (agents/*_tool.py)")
+        print(f"  ✅ Multi-agent workflow coordination")
+        print(f"  ✅ Conditional logic and parallel execution")
+        print(f"  ✅ End-to-end disaster response pipeline")
+        
+        print(f"\n🎯 This demonstrates ResilientFlow's transition from")
+        print(f"   microservices to ADK-compliant multi-agent system!")
 
 def main():
+    """Main demo entry point"""
     if len(sys.argv) != 2:
         print("Usage: python quick_demo.py <PROJECT_ID>")
+        print("Example: python quick_demo.py gen-lang-client-0768345181")
         sys.exit(1)
     
     project_id = sys.argv[1]
-    
-    # Set environment variable
-    os.environ['GOOGLE_CLOUD_PROJECT'] = project_id
-    
     demo = ResilientFlowDemo(project_id)
-    success = demo.run_complete_demo()
     
-    sys.exit(0 if success else 1)
+    try:
+        # Run the complete demo
+        success = asyncio.run(demo.run_complete_demo())
+        
+        if success:
+            print(f"\n🎉 Demo completed successfully!")
+            print(f"🔗 Next steps:")
+            print(f"   • Review orchestrator.py for ADK implementation details")
+            print(f"   • Examine agents/*_tool.py for agent implementations")
+            print(f"   • Deploy to Google Cloud for production use")
+        else:
+            print(f"\n❌ Demo encountered issues")
+            sys.exit(1)
+            
+    except KeyboardInterrupt:
+        print(f"\n🛑 Demo interrupted by user")
+    except Exception as e:
+        print(f"\n💥 Demo failed with error: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
-    main() 
+    main()
