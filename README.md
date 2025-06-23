@@ -5,7 +5,7 @@
 ResilientFlow is an ADK-based multi-agent system that coordinates intelligent disaster response through a central orchestrator managing 5 specialized agents. The system ingests multi-modal disaster data, assesses damage, optimizes resource allocation, and broadcasts multilingual alerts — all running with sub-2-minute response times.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Google ADK](https://img.shields.io/badge/Google-ADK-blue)](https://google.github.io/adk-docs/)
+[![Google ADK](https://img.shields.io/badge/Google-ADK-blue)](https://google.github.io/agent-development-kit)
 [![Agent Development Kit](https://img.shields.io/badge/Multi--Agent-System-green)](https://cloud.google.com/vertex-ai/generative-ai/docs/agent-builder)
 
 ## 🎯 Vision
@@ -13,11 +13,13 @@ ResilientFlow is an ADK-based multi-agent system that coordinates intelligent di
 **From fragmented, slow disaster response to coordinated, intelligent relief in under 2 minutes.**
 
 ### Key Metrics
-- **< 2 min** from first data receipt to resource-allocation plan
-- **< 30 s** agent coordination latency  
-- **≥ 90%** accuracy of impact heat-map versus human analyst ground-truth
+- **&lt;2 min** from first data receipt to resource-allocation plan
+- **&lt;30 s** agent coordination latency  
+- **High accuracy** impact heat-map analysis
 
 ## 🏗️ ADK Architecture
+
+See [Architecture Documentation](docs/architecture.md) for detailed system design.
 
 ```
 📡 Data Input → 🤖 ADK Orchestrator → 🛠️ Agent Tools → 📊 Coordinated Response
@@ -37,10 +39,10 @@ ResilientFlow is an ADK-based multi-agent system that coordinates intelligent di
 | Agent Tool | Role | Implementation |
 |------------|------|----------------|
 | **`aggregator_tool.py`** | Satellite imagery processing | Vertex AI Vision, damage detection |
-| **`assessor_tool.py`** | Spatial analysis & heat-maps | BigQuery GIS, ML clustering |
+| **`impact_assessor_tool.py`** | Spatial analysis & heat-maps | BigQuery GIS, ML clustering |
 | **`allocator_tool.py`** | Logistics optimization | Google OR-Tools, resource planning |
 | **`comms_tool.py`** | Multilingual alerts | Translate API, emergency notifications |
-| **`reporter_tool.py`** | PDF situation reports | ReportLab, comprehensive documentation |
+| **`report_synthesizer_tool.py`** | PDF situation reports | ReportLab, comprehensive documentation |
 
 ### ADK Workflow
 
@@ -68,27 +70,46 @@ graph TD
 
 ### Prerequisites
 
+**Skip if you only run in Mock Mode.**
+
 - Google Cloud Project with billing enabled
 - Python 3.11+
-- Google ADK installed (`pip install google-adk==1.4.2`)
+- Google ADK installed
+
+**Environment Variables (Production only):**
+
+```bash
+# For live communications (production use)
+export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
+export TWILIO_ACCOUNT_SID="ACxxxxx"
+export TWILIO_AUTH_TOKEN="your-token"
+export TWILIO_FROM_NUMBER="+1234567890"
+export USE_MOCK=0  # 1 for safe testing, 0 for live alerts
+export GOOGLE_CLOUD_PROJECT="your-project-id"
+
+# Windows PowerShell syntax:
+$env:SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
+$env:USE_MOCK=1  # For testing
+$env:GOOGLE_CLOUD_PROJECT="your-project-id"
+```
 
 ### Run ADK Demo in 2 Commands
 
 ```bash
-# 1. Clone and setup
-git clone https://github.com/your-org/resilientflow.git
+# 1. Clone and setup  
+git clone https://github.com/sheldonaristide/resilientflow.git
 cd resilientflow
 pip install -r requirements.txt
 
-# 2. Run complete ADK demo (< 3 minutes!)
-python3 scripts/quick_demo.py your-project-id
+# 2. Run complete ADK demo (&lt;3 minutes!)
+python3 scripts/quick_demo.py --project YOUR_PROJECT_ID
 ```
 
 ### 🎯 Demo Output
 
 The demo runs 3 disaster scenarios through the complete ADK workflow:
 
-```
+```bash
 🌪️ ResilientFlow ADK Demo
 ==================================================
 📋 Project: your-project-id
@@ -116,24 +137,24 @@ Each scenario demonstrates the complete ADK orchestration workflow:
 
 ```
 resilientflow/
-├── 🤖 orchestrator.py          # ADK orchestrator (MAIN COMPONENT)
-├── 🛠️ agents/                  # Agent tool implementations
-│   ├── aggregator_tool.py      # Satellite imagery processing
-│   ├── assessor_tool.py        # Impact analysis & heat-maps
-│   ├── allocator_tool.py       # Resource optimization
-│   ├── comms_tool.py          # Multilingual communications
-│   └── reporter_tool.py       # PDF report generation
-├── 🔧 common/                  # Shared utilities
-│   ├── logging.py             # Structured logging
-│   └── firestore_client.py    # State management
-├── 🏗️ infra/
-│   └── terraform/             # Infrastructure as code
-├── 📡 proto/
-│   └── api.proto              # Inter-agent message schema
-├── 🧪 scripts/
-│   ├── quick_demo.py          # ADK demo script
-│   └── load_inventory.py      # Sample data loader
-└── 📊 visualizer/             # Agent activity visualization
+├── orchestrator.py                # ADK orchestrator (MAIN COMPONENT)
+├── agents/                        # Agent tool implementations
+│   ├── aggregator_tool.py         # Satellite imagery processing
+│   ├── impact_assessor_tool.py    # Impact analysis & heat-maps
+│   ├── allocator_tool.py          # Resource optimization
+│   ├── comms_tool.py              # Multilingual communications
+│   └── report_synthesizer_tool.py # PDF report generation
+├── common/                        # Shared utilities
+│   ├── logging.py                 # Structured logging
+│   └── firestore_client.py        # State management
+├── infra/
+│   └── terraform/                 # Infrastructure as code
+├── proto/
+│   └── api.proto                  # Inter-agent message schema
+├── scripts/
+│   ├── quick_demo.py              # ADK demo script
+│   └── load_inventory.py          # Sample data loader
+└── visualizer/                    # Agent activity visualization
 ```
 
 ## 🎮 ADK Demo Scenarios
@@ -172,8 +193,8 @@ The `quick_demo.py` script demonstrates three complete workflows:
 - **Clear Dependencies**: Defined tool dependencies vs. implicit service coupling
 
 ### Performance Characteristics
-- **Agent Response Time**: < 1s per agent tool
-- **Total Workflow Time**: < 10s for complete pipeline
+- **Agent Response Time**: &lt;1s per agent tool
+- **Total Workflow Time**: &lt;10s for complete pipeline
 - **Parallel Execution**: Communications and reporting run simultaneously
 - **Conditional Logic**: Resource allocation only for severity ≥ 60
 
@@ -181,11 +202,11 @@ The `quick_demo.py` script demonstrates three complete workflows:
 
 ### 🎛️ Command Center Dashboard
 
-The ResilientFlow Command Center provides a unified real-time web dashboard for disaster response management with **embedded agent network visualization**:
+The ResilientFlow Command Center provides a unified real-time web dashboard for disaster response management:
 
 ```bash
 # Launch the Command Center
-pip install streamlit==1.28.1 plotly==5.18.0 nest_asyncio==1.5.8
+pip install streamlit>=1.28.1 plotly>=5.18.0 nest_asyncio>=1.5.8
 python -m streamlit run visualizer/streamlit_app.py
 
 # For smoke testing
@@ -196,32 +217,19 @@ USE_MOCK=1 python visualizer/streamlit_app.py --test
 - 🚨 **Live Incident Creation**: Create emergency scenarios with severity, location, and population data
 - 📊 **Real-Time Metrics**: Track workflows, response times, resources deployed, and alerts sent
 - 🗺️ **Interactive Analytics**: Plotly visualizations showing incident distribution and response analysis
-- 🔄 **Live Agent Network**: Embedded NetworkX visualization showing real-time agent coordination
+- 🔄 **Live Agent Trace**: Real-time agent coordination visualization
 - 💬 **Live Communications**: Integration with Slack webhooks and Twilio SMS alerts
 - 🎛️ **System Controls**: Toggle between Mock/Live modes, health checks, and system status
 
 **Live Agent Visualization:**
-The dashboard now includes a **live agent network graph** that visualizes:
+The dashboard includes a **live agent trace** that visualizes:
 - Real-time agent-to-agent communication during workflows
 - Message flow between Orchestrator → Data Aggregation → Impact Assessment → Resource Allocation
 - Parallel execution paths for Communications and Reporting agents
 - Network statistics showing total messages and active agents
 
-**Environment Variables (Optional):**
-```bash
-# For live communications (production use)
-export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
-export TWILIO_ACCOUNT_SID="ACxxxxx"
-export TWILIO_AUTH_TOKEN="your-token"
-export TWILIO_FROM_NUMBER="+1234567890"
-export USE_MOCK=0  # 1 for safe testing, 0 for live alerts
-
-# Windows PowerShell syntax:
-$env:SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
-$env:USE_MOCK=1  # For testing
-```
-
 **Quick Launch Commands:**
+
 ```bash
 # Linux/macOS:
 USE_MOCK=1 python -m streamlit run visualizer/streamlit_app.py
@@ -230,17 +238,19 @@ USE_MOCK=1 python -m streamlit run visualizer/streamlit_app.py
 $env:USE_MOCK=1; python -m streamlit run visualizer/streamlit_app.py
 
 # Smoke test validation:
-# Linux/macOS: USE_MOCK=1 python visualizer/streamlit_app.py --test
-# PowerShell: $env:USE_MOCK=1; python visualizer/streamlit_app.py --test
+USE_MOCK=1 python visualizer/streamlit_app.py --test
 ```
 
-**Dashboard Screenshots:**
-- Real-time orchestrator status and agent health monitoring
-- Emergency incident creation form with geographic coordinates
-- Analytics charts showing response time vs severity correlation
-- Timeline analysis of resources deployed and alerts sent over time
+## Screenshots
+
+### Command Center Dashboard
+*Real-time orchestrator status and agent health monitoring*
+
+### Emergency Response Workflow  
+*Interactive incident creation with geographic coordinates and live trace visualization*
 
 ### ADK Workflow Tracking
+
 ```python
 # Example workflow result
 {
@@ -326,11 +336,9 @@ This architecture change enables better hackathon compliance while maintaining a
 - [ ] **Advanced Workflows**: Multi-scenario branching logic
 - [ ] **Agent Learning**: Implement feedback loops for agent improvement
 
-## 📝 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
 ---
 
-**🎯 Ready for Hackathon Submission**  
-ResilientFlow now demonstrates proper "design and orchestration of interactions between multiple agents using ADK" as required.
+© 2025 ResilientFlow Contributors – MIT License
+
+See [LICENSE](LICENSE) file for details.
+

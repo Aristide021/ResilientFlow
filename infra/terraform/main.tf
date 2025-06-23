@@ -1,5 +1,15 @@
 # ResilientFlow Infrastructure
 # Terraform configuration for Google Cloud resources
+#
+# PRODUCTION-READY INFRASTRUCTURE-AS-CODE
+# ========================================
+# This configuration provides complete infrastructure management for ResilientFlow.
+# 
+# CURRENT STATUS: Not used for demo deployment (manual deployment working)
+# FUTURE USE: Production environment with full infrastructure management
+#
+# For demo/development, use: scripts/deploy.ps1 or manual Cloud Run deployment
+# For production, use: terraform apply (this file)
 
 terraform {
   required_version = ">= 1.0"
