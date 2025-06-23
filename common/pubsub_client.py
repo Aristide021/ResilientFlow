@@ -32,7 +32,8 @@ class PubSubClient:
             'disaster_events': f'projects/{project_id}/topics/rf-disaster-events',
             'impact_updates': f'projects/{project_id}/topics/rf-impact-updates',
             'allocation_plans': f'projects/{project_id}/topics/rf-allocation-plans',
-            'alert_broadcasts': f'projects/{project_id}/topics/rf-alert-broadcasts'
+            'alert_broadcasts': f'projects/{project_id}/topics/rf-alert-broadcasts',
+            'visualizer_events': f'projects/{project_id}/topics/rf-visualizer-events'
         }
         
         # Active subscriptions

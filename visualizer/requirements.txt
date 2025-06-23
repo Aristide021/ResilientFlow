@@ -1,5 +1,7 @@
-streamlit==1.28.1
-google-cloud-pubsub==2.18.4
-networkx==3.2.1
-matplotlib==3.7.3
-protobuf==4.25.1 
+streamlit
+streamlit-autorefresh
+plotly
+networkx
+matplotlib
+google-cloud-pubsub
+protobuf 

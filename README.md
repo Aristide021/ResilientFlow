@@ -179,6 +179,67 @@ The `quick_demo.py` script demonstrates three complete workflows:
 
 ## 📊 Monitoring & Observability
 
+### 🎛️ Command Center Dashboard
+
+The ResilientFlow Command Center provides a unified real-time web dashboard for disaster response management with **embedded agent network visualization**:
+
+```bash
+# Launch the Command Center
+pip install streamlit==1.28.1 plotly==5.18.0 nest_asyncio==1.5.8
+python -m streamlit run visualizer/streamlit_app.py
+
+# For smoke testing
+USE_MOCK=1 python visualizer/streamlit_app.py --test
+```
+
+**Dashboard Features:**
+- 🚨 **Live Incident Creation**: Create emergency scenarios with severity, location, and population data
+- 📊 **Real-Time Metrics**: Track workflows, response times, resources deployed, and alerts sent
+- 🗺️ **Interactive Analytics**: Plotly visualizations showing incident distribution and response analysis
+- 🔄 **Live Agent Network**: Embedded NetworkX visualization showing real-time agent coordination
+- 💬 **Live Communications**: Integration with Slack webhooks and Twilio SMS alerts
+- 🎛️ **System Controls**: Toggle between Mock/Live modes, health checks, and system status
+
+**Live Agent Visualization:**
+The dashboard now includes a **live agent network graph** that visualizes:
+- Real-time agent-to-agent communication during workflows
+- Message flow between Orchestrator → Data Aggregation → Impact Assessment → Resource Allocation
+- Parallel execution paths for Communications and Reporting agents
+- Network statistics showing total messages and active agents
+
+**Environment Variables (Optional):**
+```bash
+# For live communications (production use)
+export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
+export TWILIO_ACCOUNT_SID="ACxxxxx"
+export TWILIO_AUTH_TOKEN="your-token"
+export TWILIO_FROM_NUMBER="+1234567890"
+export USE_MOCK=0  # 1 for safe testing, 0 for live alerts
+
+# Windows PowerShell syntax:
+$env:SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
+$env:USE_MOCK=1  # For testing
+```
+
+**Quick Launch Commands:**
+```bash
+# Linux/macOS:
+USE_MOCK=1 python -m streamlit run visualizer/streamlit_app.py
+
+# Windows PowerShell:
+$env:USE_MOCK=1; python -m streamlit run visualizer/streamlit_app.py
+
+# Smoke test validation:
+# Linux/macOS: USE_MOCK=1 python visualizer/streamlit_app.py --test
+# PowerShell: $env:USE_MOCK=1; python visualizer/streamlit_app.py --test
+```
+
+**Dashboard Screenshots:**
+- Real-time orchestrator status and agent health monitoring
+- Emergency incident creation form with geographic coordinates
+- Analytics charts showing response time vs severity correlation
+- Timeline analysis of resources deployed and alerts sent over time
+
 ### ADK Workflow Tracking
 ```python
 # Example workflow result

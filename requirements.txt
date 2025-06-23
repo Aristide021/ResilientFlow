@@ -30,6 +30,12 @@ reportlab==4.0.7
 # Visualization
 matplotlib==3.7.3
 
+# Interactive dashboard
+streamlit==1.28.1
+plotly==5.18.0
+nest_asyncio==1.5.8
+streamlit-autorefresh==1.0.1
+
 # Protobuf and gRPC
 protobuf==4.25.1
 grpcio==1.59.2

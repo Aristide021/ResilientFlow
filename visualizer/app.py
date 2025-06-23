@@ -179,7 +179,7 @@ def main():
     project_id = st.sidebar.text_input("GCP Project ID", 
                                        value=os.getenv("GOOGLE_CLOUD_PROJECT", ""))
     subscription_name = st.sidebar.text_input("Pub/Sub Subscription", 
-                                              value="rf-agent-events-visualizer")
+                                              value="rf-visualizer-events-sub")
     
     auto_refresh = st.sidebar.checkbox("Auto Refresh", value=True)
     refresh_interval = st.sidebar.slider("Refresh Interval (s)", 1, 10, 2)
