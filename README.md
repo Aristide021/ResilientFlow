@@ -97,8 +97,8 @@ $env:GOOGLE_CLOUD_PROJECT="your-project-id"
 
 ```bash
 # 1. Clone and setup  
-git clone https://github.com/sheldonaristide/resilientflow.git
-cd resilientflow
+git clone https://github.com/Aristide021/ResilientFlow.git
+cd ResilientFlow
 pip install -r requirements.txt
 
 # 2. Run complete ADK demo (&lt;3 minutes!)
